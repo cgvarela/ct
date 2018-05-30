@@ -9,7 +9,7 @@
 void
 cttestset()
 {
-    char *m;
+    const char *m;
 
     set_message("foo");
     m = get_message();
@@ -19,7 +19,7 @@ cttestset()
 void
 cttestdefault()
 {
-    char *m;
+    const char *m;
 
     m = get_message();
     assert(strcmp("default message", m) == 0);
@@ -63,10 +63,21 @@ cttestexit()
 }
 
 void
+cttestfail()
+{
+    return; /* remove this line to see multiple failures */
+    ctlog("first");
+    ctfail();
+    ctlog("second");
+    ctfail();
+    ctlog("third");
+}
+
+void
 ctbenchprintf(int n)
 {
     int i;
-    char *m = get_message();
+    const char *m = get_message();
     for (i = 0; i < n; i++) {
         printf("%s\n", m);
     }
@@ -76,7 +87,7 @@ void
 ctbenchprintsz(int n)
 {
     int i;
-    char *m = get_message();
+    const char *m = get_message();
     ctsetbytes(strlen(m)+1);
     for (i = 0; i < n; i++) {
         printf("%s\n", m);

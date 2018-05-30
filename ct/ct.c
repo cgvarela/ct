@@ -21,6 +21,7 @@
 
 static char *curdir;
 static int rjobfd = -1, wjobfd = -1;
+int fail = 0; /* bool */
 static int64 bstart, bdur;
 static int btiming; /* bool */
 static int64 bbytes;
@@ -53,7 +54,7 @@ nstime()
 #endif
 
 void
-ctlogpn(char *p, int n, char *fmt, ...)
+ctlogpn(const char *p, int n, const char *fmt, ...)
 {
     va_list arg;
 
@@ -68,8 +69,14 @@ ctlogpn(char *p, int n, char *fmt, ...)
 void
 ctfail(void)
 {
-    fflush(stdout);
-    fflush(stderr);
+    fail = 1;
+}
+
+
+void
+ctfailnow(void)
+{
+    fflush(NULL);
     abort();
 }
 
@@ -77,7 +84,6 @@ ctfail(void)
 char *
 ctdir(void)
 {
-    mkdir(curdir, 0700);
     return curdir;
 }
 
@@ -118,7 +124,7 @@ ctsetbytes(int n)
 
 
 static void
-die(int code, int err, char *msg)
+die(int code, int err, const char *msg)
 {
     putc('\n', stderr);
 
@@ -184,7 +190,10 @@ start(Test *t)
 {
     t->fd = tmpfd();
     strcpy(t->dir, TmpDirPat);
-    mktemp(t->dir);
+    if (mkdtemp(t->dir) == NULL) {
+	die(1, errno, "mkdtemp");
+    }
+    fflush(NULL);
     t->pid = fork();
     if (t->pid < 0) {
         die(1, errno, "fork");
@@ -201,7 +210,10 @@ start(Test *t)
         }
         curdir = t->dir;
         t->f();
-        _exit(0);
+        if (fail) {
+            ctfailnow();
+        }
+        exit(0);
     }
     setpgid(t->pid, t->pid);
 }
@@ -289,7 +301,10 @@ runbenchn(Benchmark *b, int n)
     int outfd = tmpfd();
     int durfd = tmpfd();
     strcpy(b->dir, TmpDirPat);
-    mktemp(b->dir);
+    if (mkdtemp(b->dir) == NULL) {
+	die(1, errno, "mkdtemp");
+    }
+    fflush(NULL);
     int pid = fork();
     if (pid < 0) {
         die(1, errno, "fork");
@@ -310,7 +325,7 @@ runbenchn(Benchmark *b, int n)
         ctstoptimer();
         write(durfd, &bdur, sizeof bdur);
         write(durfd, &bbytes, sizeof bbytes);
-        _exit(0);
+        exit(0);
     }
     setpgid(pid, pid);
 
@@ -499,7 +514,7 @@ report(Test *t)
 }
 
 
-int
+static int
 readtokens()
 {
     int n = 1;
@@ -518,7 +533,7 @@ readtokens()
 }
 
 
-void
+static void
 writetokens(int n)
 {
     char c = '+';
